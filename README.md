@@ -1,3 +1,5 @@
 # Project_Pipeline_RNA-seq-Illumina_100bp_paired-end
 Snakemake based pipeline for processing most Gleeson Lab RNAseq data.
-TODO: configurable tool directories and dynamic input file detection.
+
+# TODO
+Configurable tool directories and dynamic input file detection.
