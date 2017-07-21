@@ -1,14 +1,14 @@
 import os
 import glob
 
-bin_home_dir = "/home/npdeloss"
+bin_home_dir = "/home/npdeloss/bin"
 
-samtools = "/home/npdeloss/bin/samtools"
-STAR = "/home/npdeloss/bin/STAR"
-fastqc = "/home/npdeloss/bin/fastqc"
-rsem_prepare_reference = "/home/npdeloss/bin/rsem-prepare-reference"
-rsem_calculate_expression = "/home/npdeloss/bin/rsem-calculate-expression"
-gtf2bed = "/home/npdeloss/bin/gtf2bed"
+samtools = bin_home_dir + "/samtools"
+STAR = bin_home_dir + "/STAR"
+fastqc = bin_home_dir + "/fastqc"
+rsem_prepare_reference = bin_home_dir + "/rsem-prepare-reference"
+rsem_calculate_expression = bin_home_dir + "/rsem-calculate-expression"
+gtf2bed = bin_home_dir + "/gtf2bed"
 rseqc_bin = bin_home_dir
 
 processors_per_node = 16
