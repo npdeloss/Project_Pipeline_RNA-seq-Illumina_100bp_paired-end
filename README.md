@@ -1,7 +1,9 @@
 # Project_Pipeline_RNA-seq-Illumina_100bp_paired-end
 Snakemake based pipeline for processing most Gleeson Lab RNAseq data.
 
-Input assumed to be in Concatenate_fastq_gz/H_sapiens/*_R#.fastq.gz.
+Input files are assumed to follow the pattern:
+
+Raw_fastq_gz/{organism}/{sample}-sample_concat-\*_R1_\*.fastq.gz.
 
 # TODO
-Configurable tool directories and dynamic input file detection.
+Split RSeQC suite into multiple rules.
