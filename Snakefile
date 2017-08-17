@@ -5,24 +5,31 @@ bin_home_dir = "/home/npdeloss/bin"
 
 samtools = bin_home_dir + "/samtools"
 STAR = bin_home_dir + "/STAR"
+cutadapt = bin_home_dir + "/cutadapt"
 fastqc = bin_home_dir + "/fastqc"
 rsem_prepare_reference = bin_home_dir + "/rsem-prepare-reference"
 rsem_calculate_expression = bin_home_dir + "/rsem-calculate-expression"
 gtf2bed = bin_home_dir + "/gtf2bed"
 rseqc_bin = bin_home_dir
 
+
 processors_per_node = 16
 email_address = "npdeloss@ucsd.edu"
 cluster_computing_group = "jogleeson-group"
 
 human_sample_names = list(set([path.split('/')[-1].split('-sample_concat-')[0] for path in glob.glob('Raw_fastq_gz/H_sapiens/*-sample_concat-*_R1_*.fastq.gz')]))
+mouse_sample_names = list(set([path.split('/')[-1].split('-sample_concat-')[0] for path in glob.glob('Raw_fastq_gz/M_musculus/*-sample_concat-*_R1_*.fastq.gz')]))
 
 rule all:
 	input:
 		expand("QC_fastqc/H_sapiens/{sample}_R1", sample = human_sample_names),
 		expand("Alignment_STAR/H_sapiens/GRCh38/{sample}/Aligned.out.bam", sample = human_sample_names),
 		expand("QC_RSeQC/H_sapiens/GRCh38/{sample}", sample = human_sample_names),
-		expand("Quantification_RSEM/H_sapiens/GRCh38/{sample}/Quant.genes.results", sample = human_sample_names)
+		expand("Quantification_RSEM/H_sapiens/GRCh38/{sample}/Quant.genes.results", sample = human_sample_names),
+		expand("QC_fastqc/M_musculus/{sample}_R1", sample = mouse_sample_names),
+		expand("Alignment_STAR/M_musculus/GRCm38/{sample}/Aligned.out.bam", sample = mouse_sample_names),
+		expand("QC_RSeQC/M_musculus/GRCm38/{sample}", sample = mouse_sample_names),
+		expand("Quantification_RSEM/M_musculus/GRCm38/{sample}/Quant.genes.results", sample = mouse_sample_names)
 		
 rule download_reference_GRCh38:
 	output:
@@ -108,6 +115,101 @@ rule RSeQC_reference_GRCh38:
 		cluster = " -N RSeQC_reference_GRCh38 "
 		"-o Reference/H_sapiens/GRCh38/RSeQC_job.log "
 		"-e Reference/H_sapiens/GRCh38/RSeQC_job.err "
+		"-q hotel "
+		"-l nodes=1:ppn=1" + " "
+		"-l walltime=24:00:00 "
+		"-V "
+		"-M " + email_address + " "
+		"-m abe "
+		"-A " + cluster_computing_group
+	shell:
+		"mkdir -p {output.RSeQC_reference_dir} ;"
+		"{gtf2bed} {input.reference_gtf} > {output.RSeQC_reference_bed} ;"
+
+rule download_reference_GRCm38:
+	output:
+		reference_dir = "Reference/M_musculus/GRCm38/",
+		reference_fasta = "Reference/M_musculus/GRCm38/GRCm38.primary_assembly.genome.fa",
+		reference_gtf = "Reference/M_musculus/GRCm38/gencode.vM14.primary_assembly.annotation.gtf"
+	params:
+		cluster = " -N download_reference_GRCm38 "
+		"-o  Reference/M_musculus/GRCm38_job.log "
+		"-e  Reference/M_musculus/GRCm38_job.err "
+		"-q hotel "
+		"-l nodes=1:ppn=1 "
+		"-l walltime=1:00:00 "
+		"-V " +
+		"-M " + email_address + " "
+		"-m abe "
+		"-A " + cluster_computing_group
+	shell:
+		"mkdir -p Reference/M_musculus/GRCm38/ ;"
+		"cd Reference/M_musculus/GRCm38/ ;"
+		"wget -nc ftp://ftp.sanger.ac.uk/pub/gencode/Gencode_mouse/release_M14/GRCm38.primary_assembly.genome.fa.gz ;"
+		"zcat GRCm38.primary_assembly.genome.fa.gz > GRCm38.primary_assembly.genome.fa ;"
+		"wget -nc ftp://ftp.sanger.ac.uk/pub/gencode/Gencode_mouse/release_M14/gencode.vM14.primary_assembly.annotation.gtf.gz ;"
+		"zcat gencode.vM14.primary_assembly.annotation.gtf.gz > gencode.vM14.primary_assembly.annotation.gtf ;"
+
+rule STAR_reference_GRCm38:
+	input:
+		reference_fasta = "Reference/M_musculus/GRCm38/GRCm38.primary_assembly.genome.fa",
+		reference_gtf = "Reference/M_musculus/GRCm38/gencode.vM14.primary_assembly.annotation.gtf"
+	output:
+		STAR_reference_dir = "Reference/M_musculus/GRCm38/STAR"
+	params:
+		cluster = " -N STAR_reference_GRCm38 "
+		"-o Reference/M_musculus/GRCm38/STAR_job.log "
+		"-e Reference/M_musculus/GRCm38/STAR_job.err "
+		"-q hotel "
+		"-l nodes=1:ppn=" + str(processors_per_node) + " "
+		"-l walltime=24:00:00 "
+		"-V "
+		"-M " + email_address + " "
+		"-m abe "
+		"-A " + cluster_computing_group
+	shell:
+		"mkdir -p {output.STAR_reference_dir} ;"
+		"cd {output.STAR_reference_dir} ;"
+		"{STAR} "
+		"--runThreadN {processors_per_node} "
+		"--runMode genomeGenerate "
+		"--genomeDir ./ "
+		"--genomeFastaFiles ../GRCm38.primary_assembly.genome.fa "
+		"--sjdbGTFfile ../gencode.vM14.primary_assembly.annotation.gtf "
+		"--sjdbOverhang 99"
+
+rule RSEM_reference_GRCm38:
+	input:
+		reference_fasta = "Reference/M_musculus/GRCm38/GRCm38.primary_assembly.genome.fa",
+		reference_gtf = "Reference/M_musculus/GRCm38/gencode.vM14.primary_assembly.annotation.gtf"
+	output:
+		RSEM_reference_dir = "Reference/M_musculus/GRCm38/RSEM"
+	params:
+		cluster = " -N RSEM_reference_GRCm38 "
+		"-o Reference/M_musculus/GRCm38/RSEM_job.log "
+		"-e Reference/M_musculus/GRCm38/RSEM_job.err "
+		"-q hotel "
+		"-l nodes=1:ppn=1" + " "
+		"-l walltime=24:00:00 "
+		"-V "
+		"-M " + email_address + " "
+		"-m abe "
+		"-A " + cluster_computing_group
+	shell:
+		"mkdir -p {output.RSEM_reference_dir} ;"
+		"cd {output.RSEM_reference_dir} ;"
+		"{rsem_prepare_reference}  --gtf $(ls ../*.gtf) $(ls ../*.fa) reference"
+
+rule RSeQC_reference_GRCm38:
+	input:
+		reference_gtf = "Reference/M_musculus/GRCm38/gencode.vM14.primary_assembly.annotation.gtf"
+	output:
+		RSeQC_reference_dir = "Reference/M_musculus/GRCm38/RSeQC",
+		RSeQC_reference_bed = "Reference/M_musculus/GRCm38/RSeQC/gene_model.bed"
+	params:
+		cluster = " -N RSeQC_reference_GRCm38 "
+		"-o Reference/M_musculus/GRCm38/RSeQC_job.log "
+		"-e Reference/M_musculus/GRCm38/RSeQC_job.err "
 		"-q hotel "
 		"-l nodes=1:ppn=1" + " "
 		"-l walltime=24:00:00 "
