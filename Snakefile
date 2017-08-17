@@ -247,11 +247,36 @@ rule Concatenate_fastq_gz:
 		zcat Raw_fastq_gz/{wildcards.organism}/{wildcards.sample}-sample_concat-*_R2_*.fastq.gz | gzip > Concatenate_fastq_gz/{wildcards.organism}/{wildcards.sample}_R2.fastq.gz &
 		wait"""
 
+rule Trim_cutadapt:
+	input:
+		Concatenate_fastq_gz_R1 = "Concatenate_fastq_gz/{organism}/{sample}_R1.fastq.gz",
+		Concatenate_fastq_gz_R2 = "Concatenate_fastq_gz/{organism}/{sample}_R2.fastq.gz"
+	output:
+		Trim_cutadapt_fastq_gz_R1 = "Trim_cutadapt/{organism}/{sample}_R1.fastq.gz",
+		Trim_cutadapt_fastq_gz_R2 = "Trim_cutadapt/{organism}/{sample}_R2.fastq.gz"
+	params:
+		cluster = lambda wildcards: expand(" -N Trim_cutadapt_{organism}_{sample} " +
+		"-o Trim_cutadapt/{organism}/{sample}_job.log " +
+		"-e Trim_cutadapt/{organism}/{sample}_job.err " +
+		"-q hotel " +
+		"-l nodes=1:ppn=2" + " " +
+		"-l walltime=24:00:00 " +
+		"-V " +
+		"-M " + email_address + " " +
+		"-m abe " +
+		"-A " + cluster_computing_group + "",
+		organism=wildcards.organism, 
+		sample=wildcards.sample)[0]
+	shell:
+		"""mkdir -p Trim_cutadapt/{wildcards.organism}
+		{cutadapt} -m 50 -l 100 -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT -o Trim_cutadapt/{wildcards.organism}/{wildcards.sample}_R1.fastq.gz -p Trim_cutadapt/{wildcards.organism}/{wildcards.sample}_R2.fastq.gz Concatenate_fastq_gz/{wildcards.organism}/{wildcards.sample}_R1.fastq.gz Concatenate_fastq_gz/{wildcards.organism}/{wildcards.sample}_R2.fastq.gz
+		wait"""
+		
 rule Alignment_STAR:
 	input:
 		STAR_reference_dir = "Reference/{organism}/{reference}/STAR",
-		Concatenate_fastq_gz_R1 = "Concatenate_fastq_gz/{organism}/{sample}_R1.fastq.gz",
-		Concatenate_fastq_gz_R2 = "Concatenate_fastq_gz/{organism}/{sample}_R2.fastq.gz"
+		Trim_cutadapt_fastq_gz_R1 = "Trim_cutadapt/{organism}/{sample}_R1.fastq.gz",
+		Trim_cutadapt_fastq_gz_R2 = "Trim_cutadapt/{organism}/{sample}_R2.fastq.gz"
 	output:
 		unsorted_BAM = "Alignment_STAR/{organism}/{reference}/{sample}/Aligned.out.bam",
 		sorted_BAM = "Alignment_STAR/{organism}/{reference}/{sample}/Aligned.sortedByCoord.out.bam",
@@ -278,7 +303,7 @@ rule Alignment_STAR:
 		"--genomeDir ../../../../{input.STAR_reference_dir} "
 		"--twopassMode Basic "
 		"--sjdbGTFfile $(ls ../../../../{input.STAR_reference_dir}/../*.gtf) "
-		"--readFilesIn ../../../../{input.Concatenate_fastq_gz_R1} ../../../../{input.Concatenate_fastq_gz_R2} "
+		"--readFilesIn ../../../../{input.Trim_cutadapt_fastq_gz_R1} ../../../../{input.Trim_cutadapt_fastq_gz_R2} "
 		"--sjdbOverhang 99 "
 		"--readFilesCommand zcat "
 		"--outBAMcompression 9 "
@@ -337,8 +362,8 @@ rule Quantification_RSEM:
 
 rule QC_fastqc:
 	input:
-		Concatenate_fastq_gz_R1 = "Concatenate_fastq_gz/{organism}/{sample}_R1.fastq.gz",
-		Concatenate_fastq_gz_R2 = "Concatenate_fastq_gz/{organism}/{sample}_R2.fastq.gz"
+		Trim_cutadapt_fastq_gz_R1 = "Trim_cutadapt/{organism}/{sample}_R1.fastq.gz",
+		Trim_cutadapt_fastq_gz_R2 = "Trim_cutadapt/{organism}/{sample}_R2.fastq.gz"
 	output:
 		QC_fastqc_R1 = "QC_fastqc/{organism}/{sample}_R1",
 		QC_fastqc_R2 = "QC_fastqc/{organism}/{sample}_R2"
@@ -359,8 +384,8 @@ rule QC_fastqc:
 		"mkdir -p QC_fastqc/{wildcards.organism} ;"
 		"mkdir -p {output.QC_fastqc_R1}/tmp ;"
 		"mkdir -p {output.QC_fastqc_R2}/tmp ;"
-		"{fastqc} -o {output.QC_fastqc_R1} -d {output.QC_fastqc_R1}/tmp {input.Concatenate_fastq_gz_R1} ;"
-		"{fastqc} -o {output.QC_fastqc_R2} -d {output.QC_fastqc_R2}/tmp {input.Concatenate_fastq_gz_R2} ;"
+		"{fastqc} -o {output.QC_fastqc_R1} -d {output.QC_fastqc_R1}/tmp {input.Trim_cutadapt_fastq_gz_R1} ;"
+		"{fastqc} -o {output.QC_fastqc_R2} -d {output.QC_fastqc_R2}/tmp {input.Trim_cutadapt_fastq_gz_R2} ;"
 		"rm -rf {output.QC_fastqc_R1}/tmp ;"
 		"rm -rf {output.QC_fastqc_R2}/tmp ;"
 
